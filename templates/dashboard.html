@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <h1>Welcome to StudyMate AI</h1>
+        <p>Transform your study materials with the power of AI</p>
+    </div>
+
+    <div class="upload-section">
+        <div class="upload-card">
+            <h2>📚 Upload & Generate</h2>
+            <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data" class="upload-form">
+                <div class="file-upload-area" id="fileUploadArea">
+                    <div class="upload-icon">📁</div>
+                    <div class="upload-text">
+                        <h3>Choose your study material</h3>
+                        <p>Upload PDF, PPTX, DOCX, or text files</p>
+                    </div>
+                    <input type="file" name="file" id="fileInput" required accept=".pdf,.pptx,.docx,.txt">
+                    <button type="button" class="browse-btn">Browse Files</button>
+                </div>
+                
+                <div class="tool-selection">
+                    <h3>Choose AI Tool</h3>
+                    <div class="tool-grid">
+                        <label class="tool-card">
+                            <input type="radio" name="kind" value="summarize" checked>
+                            <div class="tool-content">
+                                <div class="tool-icon">📝</div>
+                                <h4>Summarize</h4>
+                                <p>Get concise bullet points and key insights</p>
+                            </div>
+                        </label>
+                        
+                        <label class="tool-card">
+                            <input type="radio" name="kind" value="mcq">
+                            <div class="tool-content">
+                                <div class="tool-icon">❓</div>
+                                <h4>MCQ Quiz</h4>
+                                <p>Generate practice questions with answers</p>
+                            </div>
+                        </label>
+                        
+                        <label class="tool-card">
+                            <input type="radio" name="kind" value="notes">
+                            <div class="tool-content">
+                                <div class="tool-icon">📋</div>
+                                <h4>Study Notes</h4>
+                                <p>Create structured notes and definitions</p>
+                            </div>
+                        </label>
+
+                        <label class="tool-card">
+                            <input type="radio" name="kind" value="flashcards">
+                            <div class="tool-content">
+                                <div class="tool-icon">🃏</div>
+                                <h4>Flash Cards</h4>
+                                <p>Generate interactive study cards for memorization</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                
+                <button type="submit" class="btn-generate">
+                    <span>✨ Generate with AI</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="outputs-section">
+        <h2>📊 Your Generated Content</h2>
+        {% if items %}
+            <div class="outputs-grid">
+                {% for item in items %}
+                <div class="output-card">
+                    <div class="output-header">
+                        <div class="output-icon">
+                            {% if item.kind == 'summarize' %}📝
+                            {% elif item.kind == 'mcq' %}❓
+                            {% elif item.kind == 'flashcards' %}🃏
+                            {% else %}📋
+                            {% endif %}
+                        </div>
+                        <div class="output-info">
+                            <h4>{{ item.title }}</h4>
+                            <div class="output-filename">{{ item.original_filename }}</div>
+                            <span class="output-type">{{ item.kind.title() }}</span>
+                        </div>
+                    </div>
+                    <a href="{{ url_for('download', job_id=item.id) }}" class="btn-download">
+                        <span>⬇️ Download</span>
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-icon">📭</div>
+                <h3>No content yet</h3>
+                <p>Upload a file above to generate your first AI-powered study material!</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

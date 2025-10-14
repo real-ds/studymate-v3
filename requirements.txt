@@ -1,0 +1,7 @@
+flask
+boto3
+google-genai
+PyPDF2
+python-pptx
+python-docx
+gunicorn
