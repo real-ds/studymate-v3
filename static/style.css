@@ -95,7 +95,6 @@ body {
     color: var(--text-primary);
     line-height: 1.6;
     min-height: 100vh;
-    display: flex;
     margin: 0;
     padding: 0;
     -webkit-font-smoothing: antialiased;
@@ -1500,6 +1499,51 @@ body.no-sidebar .main-wrapper {
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
 }
+
+/* Quiz Button Styling - Add this to your style.css */
+
+.btn-quiz-test {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    color: var(--white);
+    border: none;
+    border-radius: var(--radius-lg);
+    font-weight: var(--font-semibold);
+    font-size: 0.875rem;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
+}
+
+.btn-quiz-test:hover {
+    background: linear-gradient(135deg, #4f46e5, #4338ca);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.btn-quiz-test i {
+    font-size: 1rem;
+}
+
+/* Update output actions to handle single button layout for MCQ */
+.output-actions {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    display:grid;
+}
+
+/* Ensure the Take Quiz button takes full width when it's the only button */
+.output-footer .output-actions > .btn-quiz-test:only-child {
+    flex: 1;
+    justify-content: center;
+}
+
+
 
 /* ==================== Animations ==================== */
 @keyframes slideInRight {

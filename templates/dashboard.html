@@ -138,7 +138,12 @@
                     <div class="output-footer">
                         <span class="output-type-label">{{ item.kind.title() }}</span>
                         <div class="output-actions">
-                            {% if item.kind == 'flashcards' %}
+                            {% if item.kind == 'mcq' %}
+                            <a href="{{ url_for('view_quiz', job_id=item.id) }}" class="btn-quiz-test">
+                                <i class="fas fa-clipboard-check"></i>
+                                <span>Take Quiz</span>
+                            </a>
+                            {% elif item.kind == 'flashcards' %}
                             <a href="{{ url_for('view_flashcards', job_id=item.id) }}" class="btn-practice">
                                 <i class="fas fa-play"></i>
                                 <span>Practice</span>
@@ -154,10 +159,12 @@
                                 <span>View</span>
                             </a>
                             {% endif %}
+                            {% if item.kind != 'mcq' %}
                             <a href="{{ url_for('download', job_id=item.id) }}" class="btn-download">
                                 <i class="fas fa-download"></i>
                                 <span>Download</span>
                             </a>
+                            {% endif %}
                         </div>
                     </div>
                 </div>

@@ -161,8 +161,26 @@ def summarize_text(text):
 
 def generate_mcqs(text):
     prompt = (
-        "Create 10 MCQs with 4 options each and an answer key at the end; target undergraduate level:\n\n"
-        + text[:20000]
+        "Create 15 multiple choice questions from the following content. "
+        "Return ONLY valid JSON (no markdown, no backticks) in this exact format:\n"
+        "{\n"
+        '  "questions": [\n'
+        '    {\n'
+        '      "question": "What is the main concept?",\n'
+        '      "options": ["Option A", "Option B", "Option C", "Option D"],\n'
+        '      "correct": 0,\n'
+        '      "explanation": "Brief explanation of why this is correct"\n'
+        '    }\n'
+        '  ]\n'
+        "}\n\n"
+        "Rules:\n"
+        "- Create 15 questions total\n"
+        "- Each question must have exactly 4 options\n"
+        "- 'correct' is the index (0-3) of the correct answer\n"
+        "- Include brief explanation for each answer\n"
+        "- Mix easy, medium, and hard difficulty questions\n"
+        "- Cover different aspects of the content\n\n"
+        "Content:\n" + text[:20000]
     )
     resp = ai.models.generate_content(model=MODEL_ID, contents=prompt)
     return resp.text
@@ -432,7 +450,7 @@ def upload():
         flash(f"AI generation failed: {str(e)}")
         return redirect(url_for("dashboard"))
 
-    # Save output to S3 - PDF for summarize/notes, JSON for mindmap, TXT for others
+    # Save output to S3 - PDF for summarize/notes, JSON for mindmap/mcq, TXT for flashcards
     if kind in ["summarize", "notes"]:
         # Generate PDF
         pdf_buffer = create_pdf_document(result, title, kind)
@@ -443,8 +461,8 @@ def upload():
             Body=pdf_buffer.getvalue(),
             ContentType="application/pdf",
         )
-    elif kind == "mindmap":
-        # Save as JSON for mindmap
+    elif kind in ["mindmap", "mcq"]:
+        # Save as JSON for mindmap and mcq
         out_key = f"outputs/{session['user_id']}/{title}-{f.filename}.json"
         s3.put_object(
             Bucket=S3_BUCKET,
@@ -606,6 +624,39 @@ def export_mindmap_pdf(job_id):
     """Export mindmap as PDF - this will be handled by frontend"""
     # This is a placeholder - actual PDF generation happens in JavaScript
     return "PDF export is handled by the frontend", 400
+
+
+@app.route("/quiz/<int:job_id>")
+def view_quiz(job_id):
+    """View interactive quiz with Test and Practice modes"""
+    if "user_id" not in session:
+        return redirect(url_for("signin"))
+    
+    db = get_db()
+    row = db.execute(
+        "SELECT title, s3_output_key, kind FROM jobs WHERE id=? AND user_id=?",
+        (job_id, session["user_id"]),
+    ).fetchone()
+    
+    if not row or row[2] != 'mcq':
+        return "Not found or not a quiz", 404
+    
+    # Get quiz data from S3
+    obj = s3.get_object(Bucket=S3_BUCKET, Key=row[1])
+    quiz_json = obj["Body"].read().decode("utf-8")
+    
+    # Clean JSON if it has markdown code blocks
+    import re
+    quiz_json = re.sub(r'```json\s*', '', quiz_json)
+    quiz_json = re.sub(r'```\s*$', '', quiz_json)
+    quiz_json = quiz_json.strip()
+    
+    return render_template(
+        "quiz_viewer.html",
+        job_id=job_id,
+        title=row[0],
+        quiz_data=quiz_json
+    )
 
 
 def parse_flashcards_from_text(text):
