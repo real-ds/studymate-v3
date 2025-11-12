@@ -1,38 +1,46 @@
 /* ==================== CSS Variables ==================== */
 :root {
-    /* Primary Colors - Soft Pastel Blue */
-    --primary-gradient: linear-gradient(135deg, #e0e7ff 0%, #f5f3ff 100%);
-    --primary-color: #6366f1;
-    --primary-dark: #4f46e5;
-    --primary-light: #818cf8;
+    /* New Palette:
+      - #0D1B2A (Void)
+      - #1B263B (Dark Blue)
+      - #415A77 (Steel Blue)
+      - #778DA9 (Slate Gray)
+      - #E0E1DD (Light Gray)
+    */
+
+    /* Primary Colors - Void (Darkest) */
+    --primary-gradient: linear-gradient(135deg, #1B263B 0%, #0D1B2A 100%);
+    --primary-color: #0D1B2A;
+    --primary-dark: #0D1B2A;   /* Re-using, as no darker shade is provided */
+    --primary-light: #1B263B;
     
-    /* Accent Colors - Soft Mint Green */
-    --accent-color: #10b981;
-    --accent-dark: #059669;
-    --accent-light: #34d399;
+    /* Accent Colors - Steel Blue */
+    --accent-color: #415A77;
+    --accent-dark: #1B263B;
+    --accent-light: #778DA9;
     
     /* UI Colors */
-    --danger-color: #ef4444;
-    --warning-color: #f59e0b;
-    --info-color: #3b82f6;
+    --danger-color: #ef4444;   /* Kept original red for danger */
+    --warning-color: #f59e0b; /* Kept original yellow for warning */
+    --info-color: #415A77;     /* Using Steel Blue for info */
     
     /* Neutral Colors */
     --white: #ffffff;
     --bg-primary: #ffffff;
-    --bg-secondary: #f8fafc;
-    --bg-tertiary: #f1f5f9;
+    --bg-secondary: #f8fafc;  /* Kept original off-white for main bg */
+    --bg-tertiary: #E0E1DD;   /* Using Light Gray as a tertiary bg */
     
     /* Text Colors */
-    --text-primary: #0f172a;
-    --text-secondary: #475569;
-    --text-tertiary: #94a3b8;
+    --text-primary: #0D1B2A;    /* Void (Darkest) */
+    --text-secondary: #1B263B;  /* Dark Blue */
+    --text-tertiary: #415A77;  /* Steel Blue */
     --text-inverse: #ffffff;
     
     /* Border & Divider */
-    --border-color: #e2e8f0;
-    --border-light: #f1f5f9;
-    --divider-color: #e2e8f0;
-    
+    --border-color: #778DA9;   /* Slate Gray */
+    --border-light: #E0E1DD;   /* Light Gray */
+    --divider-color: #E0E1DD;  /* Light Gray */
+ 
     /* Shadows */
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
@@ -891,23 +899,23 @@ body.no-sidebar .main-wrapper {
 }
 
 .badge-summarize {
-    background: #6366f1;
+    background: var(--primary-light);
 }
 
 .badge-mcq {
-    background: #ec4899;
+    background: var(--primary-light);
 }
 
 .badge-notes {
-    background: #3b82f6;
+    background: var(--primary-light);
 }
 
 .badge-flashcards {
-    background: #10b981;
+    background: var(--primary-light);
 }
 
 .badge-mindmap {
-    background: #8b5cf6;
+    background: var(--primary-light);
 }
 
 .output-header {
@@ -994,7 +1002,7 @@ body.no-sidebar .main-wrapper {
 }
 
 .btn-view:hover {
-    background: #2563eb;
+    background: #404200;
     transform: translateY(-1px);
     box-shadow: var(--shadow-md);
 }
@@ -1004,7 +1012,7 @@ body.no-sidebar .main-wrapper {
     align-items: center;
     gap: var(--spacing-sm);
     padding: var(--spacing-sm) var(--spacing-lg);
-    background: #8b5cf6;
+    background: var(--accent-color);
     color: var(--white);
     text-decoration: none;
     border-radius: var(--radius-lg);
@@ -1014,7 +1022,7 @@ body.no-sidebar .main-wrapper {
 }
 
 .btn-mindmap:hover {
-    background: #7c3aed;
+    background: #2d2a00;
     transform: translateY(-1px);
     box-shadow: var(--shadow-md);
 }
@@ -1507,7 +1515,7 @@ body.no-sidebar .main-wrapper {
     align-items: center;
     gap: 0.5rem;
     padding: 0.625rem 1.25rem;
-    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    background: linear-gradient(135deg, #232356, #0900b1);
     color: var(--white);
     border: none;
     border-radius: var(--radius-lg);
@@ -1520,7 +1528,7 @@ body.no-sidebar .main-wrapper {
 }
 
 .btn-quiz-test:hover {
-    background: linear-gradient(135deg, #4f46e5, #4338ca);
+    background: linear-gradient(135deg, #090546, #3d2df5);
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
