@@ -16,6 +16,10 @@ const toolData = {
     flashcards: {
         icon: 'fas fa-layer-group',
         name: 'Flash Cards'
+    },
+    mindmap: {
+        icon: 'fas fa-diagram-project',
+        name: 'Mind Map'
     }
 };
 

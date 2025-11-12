@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }} - Mind Map</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    overflow: hidden;
+    height: 100%;
+    width: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+.mindmap-fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #0f1419;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.mindmap-header {
+    background: #1a1f2e;
+    border-bottom: 1px solid #2d3748;
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    height: 60px;
+    flex-shrink: 0;
+    z-index: 100;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.btn-back {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #2d3748;
+    border: 1px solid #4a5568;
+    border-radius: 6px;
+    color: #e2e8f0;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 1rem;
+}
+
+.btn-back:hover {
+    background: #374151;
+}
+
+.header-info h1 {
+    font-size: 1.25rem;
+    color: #e2e8f0;
+    font-weight: 600;
+    margin: 0;
+    line-height: 1.2;
+}
+
+.header-info .subtitle {
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+
+.header-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-control {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: #2d3748;
+    border: 1px solid #4a5568;
+    border-radius: 6px;
+    color: #e2e8f0;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-control:hover {
+    background: #374151;
+}
+
+.btn-control.btn-primary {
+    background: #8b5cf6;
+    border-color: #8b5cf6;
+}
+
+.btn-control.btn-primary:hover {
+    background: #7c3aed;
+}
+
+.controls-inline {
+    background: #161b22;
+    padding: 0.5rem 1.5rem;
+    display: flex;
+    gap: 2rem;
+    border-bottom: 1px solid #21262d;
+    font-size: 0.8rem;
+    color: #8b949e;
+    height: 36px;
+    flex-shrink: 0;
+    align-items: center;
+}
+
+.controls-inline span {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.controls-inline i {
+    color: #8b5cf6;
+}
+
+#mindmap-canvas {
+    flex: 1;
+    width: 100%;
+    overflow: hidden;
+    position: relative;
+}
+
+#mindmap-svg {
+    width: 100%;
+    height: 100%;
+    cursor: grab;
+    display: block;
+}
+
+#mindmap-svg:active {
+    cursor: grabbing;
+}
+
+.node {
+    cursor: pointer;
+}
+
+.node:hover circle {
+    filter: drop-shadow(0px 6px 16px rgba(139, 92, 246, 0.6)) !important;
+}
+
+@media (max-width: 768px) {
+    .mindmap-header {
+        flex-direction: column;
+        height: auto;
+        padding: 0.75rem;
+        gap: 0.5rem;
+    }
+    
+    .header-actions {
+        width: 100%;
+    }
+    
+    .btn-control {
+        flex: 1;
+        justify-content: center;
+    }
+    
+    .controls-inline {
+        flex-wrap: wrap;
+        height: auto;
+        padding: 0.5rem;
+        gap: 0.5rem;
+    }
+}
+    </style>
+</head>
+<body>
+<div class="mindmap-fullscreen">
+    <div class="mindmap-header">
+        <div class="header-left">
+            <button onclick="window.history.back()" class="btn-back">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+            <div class="header-info">
+                <h1>{{ title }}</h1>
+                <span class="subtitle">Interactive Mind Map</span>
+            </div>
+        </div>
+        <div class="header-actions">
+            <button onclick="resetZoom()" class="btn-control">
+                <i class="fas fa-expand"></i>
+            </button>
+            <button onclick="exportPNG()" class="btn-control">
+                <i class="fas fa-image"></i>
+            </button>
+            <button onclick="exportPDF()" class="btn-control btn-primary">
+                <i class="fas fa-file-pdf"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="controls-inline">
+        <span><i class="fas fa-mouse-pointer"></i> Click to expand</span>
+        <span><i class="fas fa-search-plus"></i> Scroll to zoom</span>
+        <span><i class="fas fa-hand-paper"></i> Drag to pan</span>
+    </div>
+
+    <div id="mindmap-canvas">
+        <svg id="mindmap-svg"></svg>
+    </div>
+</div>
+
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<script>
+const mindmapData = {{ mindmap_data | safe }};
+
+const container = document.getElementById('mindmap-canvas');
+const width = container.clientWidth;
+const height = container.clientHeight;
+
+const svg = d3.select("#mindmap-svg")
+    .attr("width", width)
+    .attr("height", height);
+
+const g = svg.append("g");
+
+const zoom = d3.zoom()
+    .scaleExtent([0.2, 2])
+    .on("zoom", (event) => {
+        g.attr("transform", event.transform);
+    });
+
+svg.call(zoom);
+
+const treeLayout = d3.tree()
+    .size([height * 0.85, width * 0.75])
+    .separation((a, b) => (a.parent === b.parent ? 2 : 2.5));
+
+const root = d3.hierarchy(mindmapData);
+root.x0 = height / 2;
+root.y0 = 0;
+
+root.children.forEach(collapseDeep);
+
+function collapseDeep(d, depth = 0) {
+    if (d.children && depth > 0) {
+        d._children = d.children;
+        d._children.forEach(child => collapseDeep(child, depth + 1));
+        d.children = null;
+    } else if (d.children) {
+        d.children.forEach(child => collapseDeep(child, depth + 1));
+    }
+}
+
+let i = 0;
+const duration = 500;
+
+function update(source) {
+    const treeData = treeLayout(root);
+    const nodes = treeData.descendants();
+    const links = treeData.links();
+
+    nodes.forEach(d => {
+        d.y = d.depth * 300;
+    });
+
+    const node = g.selectAll("g.node")
+        .data(nodes, d => d.id || (d.id = ++i));
+
+    const nodeEnter = node.enter().append("g")
+        .attr("class", "node")
+        .attr("transform", d => `translate(${source.y0},${source.x0})`)
+        .style("opacity", 0)
+        .on("click", click);
+
+    nodeEnter.append("circle")
+        .attr("r", d => d.depth === 0 ? 18 : 12)
+        .style("fill", d => getNodeColor(d))
+        .style("stroke", d => getNodeStroke(d))
+        .style("stroke-width", d => d.depth === 0 ? "4px" : "3px")
+        .style("filter", "drop-shadow(0px 4px 10px rgba(0, 0, 0, 0.4))");
+
+    const textGroup = nodeEnter.append("g")
+        .attr("class", "text-group");
+
+    textGroup.append("rect")
+        .attr("class", "text-bg")
+        .attr("rx", 10)
+        .attr("ry", 10)
+        .style("fill", d => d.depth === 0 ? "#1e293b" : "#334155")
+        .style("opacity", 0.95);
+
+    textGroup.append("text")
+        .attr("class", "node-text")
+        .attr("dy", ".35em")
+        .attr("text-anchor", d => d.children || d._children ? "end" : "start")
+        .text(d => d.data.name)
+        .style("fill", "#f1f5f9")
+        .style("font-size", d => d.depth === 0 ? "20px" : "16px")
+        .style("font-weight", d => d.depth === 0 ? "700" : "500")
+        .style("letter-spacing", "0.5px")
+        .style("pointer-events", "none");
+
+    nodeEnter.selectAll(".text-bg")
+        .each(function(d) {
+            const text = d3.select(this.parentNode).select("text").node();
+            const bbox = text.getBBox();
+            d3.select(this)
+                .attr("x", bbox.x - 12)
+                .attr("y", bbox.y - 6)
+                .attr("width", bbox.width + 24)
+                .attr("height", bbox.height + 12);
+        });
+
+    nodeEnter.selectAll(".text-group")
+        .attr("transform", d => {
+            const hasChildren = d.children || d._children;
+            return `translate(${hasChildren ? -25 : 25}, 0)`;
+        });
+
+    nodeEnter.append("text")
+        .attr("class", "expand-indicator")
+        .attr("text-anchor", "middle")
+        .attr("dy", ".35em")
+        .style("fill", "#fff")
+        .style("font-size", "14px")
+        .style("font-weight", "bold")
+        .style("pointer-events", "none")
+        .text(d => {
+            if (d._children) return "+";
+            if (d.children && d.depth > 0) return "−";
+            return "";
+        });
+
+    const nodeUpdate = nodeEnter.merge(node);
+
+    nodeUpdate.transition()
+        .duration(duration)
+        .attr("transform", d => `translate(${d.y},${d.x})`)
+        .style("opacity", 1);
+
+    nodeUpdate.select("circle")
+        .style("fill", d => getNodeColor(d))
+        .style("stroke", d => getNodeStroke(d))
+        .attr("r", d => d.depth === 0 ? 18 : 12);
+
+    nodeUpdate.select(".expand-indicator")
+        .text(d => {
+            if (d._children) return "+";
+            if (d.children && d.depth > 0) return "−";
+            return "";
+        });
+
+    node.exit().transition()
+        .duration(duration)
+        .attr("transform", d => `translate(${source.y},${source.x})`)
+        .style("opacity", 0)
+        .remove();
+
+    const link = g.selectAll("path.link")
+        .data(links, d => d.target.id);
+
+    const linkEnter = link.enter().insert("path", "g")
+        .attr("class", "link")
+        .attr("d", d => {
+            const o = {x: source.x0, y: source.y0};
+            return diagonal(o, o);
+        })
+        .style("fill", "none")
+        .style("stroke", "#475569")
+        .style("stroke-width", "2.5px")
+        .style("opacity", 0);
+
+    linkEnter.merge(link).transition()
+        .duration(duration)
+        .attr("d", d => diagonal(d.source, d.target))
+        .style("opacity", 0.6);
+
+    link.exit().transition()
+        .duration(duration)
+        .attr("d", d => {
+            const o = {x: source.x, y: source.y};
+            return diagonal(o, o);
+        })
+        .style("opacity", 0)
+        .remove();
+
+    nodes.forEach(d => {
+        d.x0 = d.x;
+        d.y0 = d.y;
+    });
+}
+
+function diagonal(s, d) {
+    return `M ${s.y} ${s.x}
+            C ${s.y + (d.y - s.y) * 0.5} ${s.x},
+              ${d.y - (d.y - s.y) * 0.5} ${d.x},
+              ${d.y} ${d.x}`;
+}
+
+function getNodeColor(d) {
+    if (d.depth === 0) return "#8b5cf6";
+    if (d._children) return "#6366f1";
+    return "#334155";
+}
+
+function getNodeStroke(d) {
+    if (d.depth === 0) return "#a78bfa";
+    if (d._children) return "#818cf8";
+    return "#64748b";
+}
+
+function click(event, d) {
+    if (d.children) {
+        d._children = d.children;
+        d.children = null;
+    } else {
+        d.children = d._children;
+        d._children = null;
+    }
+    update(d);
+}
+
+update(root);
+
+setTimeout(() => {
+    svg.transition()
+        .duration(750)
+        .call(zoom.transform, d3.zoomIdentity.translate(180, height / 2).scale(0.85));
+}, 100);
+
+function resetZoom() {
+    svg.transition()
+        .duration(750)
+        .call(zoom.transform, d3.zoomIdentity.translate(180, height / 2).scale(0.85));
+}
+
+function exportPNG() {
+    const svgElement = document.getElementById('mindmap-svg');
+    const svgData = new XMLSerializer().serializeToString(svgElement);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    
+    canvas.width = width;
+    canvas.height = height;
+    
+    img.onload = function() {
+        ctx.fillStyle = '#0f1419';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        
+        canvas.toBlob(function(blob) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = '{{ title }}_mindmap.png';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+    };
+    
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+}
+
+function exportPDF() {
+    const { jsPDF } = window.jspdf;
+    const svgElement = document.getElementById('mindmap-svg');
+    const svgData = new XMLSerializer().serializeToString(svgElement);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    
+    canvas.width = width;
+    canvas.height = height;
+    
+    img.onload = function() {
+        ctx.fillStyle = '#0f1419';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0);
+        
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF({
+            orientation: width > height ? 'landscape' : 'portrait',
+            unit: 'px',
+            format: [width, height]
+        });
+        
+        pdf.addImage(imgData, 'PNG', 0, 0, width, height);
+        pdf.save('{{ title }}_mindmap.pdf');
+    };
+    
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+}
+
+window.addEventListener('resize', () => {
+    const newWidth = container.clientWidth;
+    const newHeight = container.clientHeight;
+    svg.attr("width", newWidth).attr("height", newHeight);
+});
+</script>
+</body>
+</html>

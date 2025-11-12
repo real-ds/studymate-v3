@@ -22,7 +22,7 @@
                     <i class="fas fa-wand-magic-sparkles"></i>
                 </div>
                 <div class="stat-content">
-                    <div class="stat-number">4</div>
+                    <div class="stat-number">5</div>
                     <div class="stat-label">AI Tools</div>
                 </div>
             </div>
@@ -118,6 +118,8 @@
                             <i class="fas fa-circle-question"></i>
                         {% elif item.kind == 'flashcards' %}
                             <i class="fas fa-layer-group"></i>
+                        {% elif item.kind == 'mindmap' %}
+                            <i class="fas fa-diagram-project"></i>
                         {% else %}
                             <i class="fas fa-clipboard"></i>
                         {% endif %}
@@ -140,6 +142,11 @@
                             <a href="{{ url_for('view_flashcards', job_id=item.id) }}" class="btn-practice">
                                 <i class="fas fa-play"></i>
                                 <span>Practice</span>
+                            </a>
+                            {% elif item.kind == 'mindmap' %}
+                            <a href="{{ url_for('view_mindmap', job_id=item.id) }}" class="btn-mindmap">
+                                <i class="fas fa-diagram-project"></i>
+                                <span>View Map</span>
                             </a>
                             {% elif item.kind in ['summarize', 'notes'] %}
                             <a href="{{ url_for('view_pdf', job_id=item.id) }}" class="btn-view">

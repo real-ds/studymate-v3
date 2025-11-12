@@ -186,6 +186,48 @@ def generate_flashcards(text):
     resp = ai.models.generate_content(model=MODEL_ID, contents=prompt)
     return resp.text
 
+def generate_mindmap(text):
+    prompt = (
+        "Create a comprehensive hierarchical mind map structure from the following content. "
+        "Return ONLY valid JSON (no markdown, no backticks, no explanation) in this exact format:\n"
+        "{\n"
+        '  "name": "Central Topic",\n'
+        '  "children": [\n'
+        '    {\n'
+        '      "name": "Main Branch 1",\n'
+        '      "children": [\n'
+        '        {\n'
+        '          "name": "Sub-topic 1.1",\n'
+        '          "children": [\n'
+        '            {\n'
+        '              "name": "Detail 1.1.1",\n'
+        '              "children": [\n'
+        '                {"name": "Concept 1.1.1.1"},\n'
+        '                {"name": "Concept 1.1.1.2"}\n'
+        '              ]\n'
+        '            }\n'
+        '          ]\n'
+        '        },\n'
+        '        {"name": "Sub-topic 1.2"}\n'
+        '      ]\n'
+        '    },\n'
+        '    {"name": "Main Branch 2"}\n'
+        '  ]\n'
+        "}\n\n"
+        "Rules:\n"
+        "- Keep names concise (max 60 characters per node)\n"
+        "- Create 4-6 main branches from central topic\n"
+        "- Each main branch should have 3-5 sub-topics\n"
+        "- Continue breaking down complex concepts up to 7 levels deep\n"
+        "- Go deeper for complex topics - aim for 5-7 levels where content supports it\n"
+        "- Use shorter phrases for deeper levels\n"
+        "- Focus on key concepts, definitions, examples, and relationships\n"
+        "- Ensure comprehensive coverage of the content\n\n"
+        "Content:\n" + text[:20000]
+    )
+    resp = ai.models.generate_content(model=MODEL_ID, contents=prompt)
+    return resp.text
+
 
 def create_pdf_document(content, title, doc_type="summary"):
     """
@@ -335,8 +377,8 @@ def upload():
         return redirect(url_for("signin"))
 
     f = request.files.get("file")
-    kind = request.form.get("kind")  # summarize | mcq | notes | flashcards
-    if not f or kind not in {"summarize", "mcq", "notes", "flashcards"}:
+    kind = request.form.get("kind")  # summarize | mcq | notes | flashcards | mindmap
+    if not f or kind not in {"summarize", "mcq", "notes", "flashcards", "mindmap"}:
         flash("Please choose a file and a tool.")
         return redirect(url_for("dashboard"))
 
@@ -380,6 +422,9 @@ def upload():
         elif kind == "flashcards":
             result = generate_flashcards(text)
             title = "Flash Cards"
+        elif kind == "mindmap":
+            result = generate_mindmap(text)
+            title = "Mind Map"
         else:
             result = make_notes(text)
             title = "Notes"
@@ -387,7 +432,7 @@ def upload():
         flash(f"AI generation failed: {str(e)}")
         return redirect(url_for("dashboard"))
 
-    # Save output to S3 - PDF for summarize/notes, TXT for others
+    # Save output to S3 - PDF for summarize/notes, JSON for mindmap, TXT for others
     if kind in ["summarize", "notes"]:
         # Generate PDF
         pdf_buffer = create_pdf_document(result, title, kind)
@@ -397,6 +442,15 @@ def upload():
             Key=out_key,
             Body=pdf_buffer.getvalue(),
             ContentType="application/pdf",
+        )
+    elif kind == "mindmap":
+        # Save as JSON for mindmap
+        out_key = f"outputs/{session['user_id']}/{title}-{f.filename}.json"
+        s3.put_object(
+            Bucket=S3_BUCKET,
+            Key=out_key,
+            Body=result.encode("utf-8"),
+            ContentType="application/json",
         )
     else:
         # Save as TXT for MCQ and Flashcards
@@ -505,6 +559,53 @@ def serve_pdf(job_id):
         mimetype='application/pdf',
         headers={'Content-Disposition': 'inline'}
     )
+
+
+@app.route("/mindmap/<int:job_id>")
+def view_mindmap(job_id):
+    """View interactive mindmap"""
+    if "user_id" not in session:
+        return redirect(url_for("signin"))
+    
+    db = get_db()
+    row = db.execute(
+        "SELECT title, s3_output_key, kind FROM jobs WHERE id=? AND user_id=?",
+        (job_id, session["user_id"]),
+    ).fetchone()
+    
+    if not row or row[2] != 'mindmap':
+        return "Not found or not a mindmap", 404
+    
+    # Get mindmap data from S3
+    obj = s3.get_object(Bucket=S3_BUCKET, Key=row[1])
+    mindmap_json = obj["Body"].read().decode("utf-8")
+    
+    # Clean JSON if it has markdown code blocks
+    import re
+    mindmap_json = re.sub(r'```json\s*', '', mindmap_json)
+    mindmap_json = re.sub(r'```\s*$', '', mindmap_json)
+    mindmap_json = mindmap_json.strip()
+    
+    return render_template(
+        "mindmap_viewer.html",
+        job_id=job_id,
+        title=row[0],
+        mindmap_data=mindmap_json
+    )
+
+
+@app.route("/mindmap/<int:job_id>/export/png")
+def export_mindmap_png(job_id):
+    """Export mindmap as PNG - this will be handled by frontend"""
+    # This is a placeholder - actual PNG generation happens in JavaScript
+    return "PNG export is handled by the frontend", 400
+
+
+@app.route("/mindmap/<int:job_id>/export/pdf")
+def export_mindmap_pdf(job_id):
+    """Export mindmap as PDF - this will be handled by frontend"""
+    # This is a placeholder - actual PDF generation happens in JavaScript
+    return "PDF export is handled by the frontend", 400
 
 
 def parse_flashcards_from_text(text):
