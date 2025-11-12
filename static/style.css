@@ -385,6 +385,15 @@ h1, h2, h3, h4, h5, h6 {
     margin-left: var(--sidebar-collapsed-width);
 }
 
+/* Ensure no sidebar interference on unauthenticated pages */
+body.no-sidebar .sidebar {
+    display: none;
+}
+
+body.no-sidebar .main-wrapper {
+    margin-left: 0 !important;
+}
+
 /* Top Navbar (for non-authenticated pages) */
 .top-navbar {
     background: var(--white);
@@ -963,6 +972,26 @@ h1, h2, h3, h4, h5, h6 {
 
 .btn-practice:hover {
     background: var(--accent-dark);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.btn-view {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    background: var(--info-color);
+    color: var(--white);
+    text-decoration: none;
+    border-radius: var(--radius-lg);
+    font-weight: var(--font-medium);
+    font-size: 0.9375rem;
+    transition: all var(--transition-fast);
+}
+
+.btn-view:hover {
+    background: #2563eb;
     transform: translateY(-1px);
     box-shadow: var(--shadow-md);
 }

@@ -6,7 +6,7 @@ import os
 load_dotenv()
 
 import sqlite3, io
-from flask import Flask, request, render_template, redirect, url_for, session, send_file, flash
+from flask import Flask, request, render_template, redirect, url_for, session, send_file, flash, Response
 from werkzeug.security import generate_password_hash, check_password_hash
 import boto3
 from google import genai
@@ -20,6 +20,15 @@ from pptx.enum.text import PP_ALIGN
 from pptx.dml.color import RGBColor
 import json
 import io
+
+# PDF Generation imports
+from reportlab.lib.pagesizes import letter, A4
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak
+from reportlab.lib.enums import TA_JUSTIFY, TA_LEFT, TA_CENTER
+from reportlab.pdfgen import canvas
+from reportlab.lib import colors
 
 
 
@@ -177,6 +186,149 @@ def generate_flashcards(text):
     resp = ai.models.generate_content(model=MODEL_ID, contents=prompt)
     return resp.text
 
+
+def create_pdf_document(content, title, doc_type="summary"):
+    """
+    Create a professionally formatted PDF document
+    doc_type: 'summary' or 'notes'
+    """
+    import re
+    
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter,
+                            rightMargin=72, leftMargin=72,
+                            topMargin=72, bottomMargin=72)
+    
+    # Container for the 'Flowable' objects
+    elements = []
+    
+    # Define styles
+    styles = getSampleStyleSheet()
+    
+    # Custom styles
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        textColor=colors.HexColor('#4f46e5'),
+        spaceAfter=30,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+    
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=16,
+        textColor=colors.HexColor('#4f46e5'),
+        spaceAfter=12,
+        spaceBefore=12,
+        fontName='Helvetica-Bold'
+    )
+    
+    subheading_style = ParagraphStyle(
+        'CustomSubHeading',
+        parent=styles['Heading3'],
+        fontSize=13,
+        textColor=colors.HexColor('#6366f1'),
+        spaceAfter=8,
+        spaceBefore=8,
+        fontName='Helvetica-Bold'
+    )
+    
+    body_style = ParagraphStyle(
+        'CustomBody',
+        parent=styles['BodyText'],
+        fontSize=11,
+        textColor=colors.HexColor('#0f172a'),
+        spaceAfter=8,
+        alignment=TA_JUSTIFY,
+        leading=16
+    )
+    
+    bullet_style = ParagraphStyle(
+        'CustomBullet',
+        parent=styles['BodyText'],
+        fontSize=11,
+        textColor=colors.HexColor('#0f172a'),
+        spaceAfter=6,
+        leftIndent=20,
+        bulletIndent=10,
+        leading=14
+    )
+    
+    def clean_markdown(text):
+        """Remove markdown formatting and convert to plain text with reportlab formatting"""
+        # Escape XML special characters first
+        text = text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        
+        # Convert **bold** to <b>bold</b>
+        text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', text)
+        
+        # Convert *italic* to <i>italic</i>
+        text = re.sub(r'\*(.+?)\*', r'<i>\1</i>', text)
+        
+        # Convert `code` to monospace
+        text = re.sub(r'`(.+?)`', r'<font name="Courier">\1</font>', text)
+        
+        return text
+    
+    # Add title
+    elements.append(Paragraph(title, title_style))
+    elements.append(Spacer(1, 0.3*inch))
+    
+    # Process content line by line
+    lines = content.split('\n')
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            elements.append(Spacer(1, 0.1*inch))
+            continue
+        
+        # Detect main headings (## or single #)
+        if line.startswith('###'):
+            text = line.replace('###', '').strip()
+            text = clean_markdown(text)
+            elements.append(Paragraph(text, subheading_style))
+        elif line.startswith('##'):
+            text = line.replace('##', '').strip()
+            text = clean_markdown(text)
+            elements.append(Paragraph(text, heading_style))
+        elif line.startswith('#'):
+            text = line.replace('#', '').strip()
+            text = clean_markdown(text)
+            elements.append(Paragraph(text, heading_style))
+        # Detect standalone bold headings at start of line (• **Text:** or **Text:**)
+        elif re.match(r'^[•\-\*]\s*\*\*[^*]+\*\*:?\s*$', line):
+            # This is a bullet point that's entirely bold - treat as subheading
+            text = re.sub(r'^[•\-\*]\s*\*\*([^*]+)\*\*:?\s*$', r'\1', line)
+            text = clean_markdown(text)
+            elements.append(Paragraph(f"• {text}", subheading_style))
+        # Detect all-caps lines (likely headings)
+        elif line.isupper() and len(line) > 3 and len(line) < 100 and not line.startswith(('•', '-', '*')):
+            text = clean_markdown(line)
+            elements.append(Paragraph(text, subheading_style))
+        # Detect bullet points
+        elif line.startswith('- ') or line.startswith('• ') or line.startswith('* '):
+            text = line[2:].strip()
+            text = clean_markdown(text)
+            elements.append(Paragraph(f"• {text}", bullet_style))
+        # Detect numbered lists
+        elif len(line) > 2 and line[0].isdigit() and line[1] in ['.', ')']:
+            text = clean_markdown(line)
+            elements.append(Paragraph(text, bullet_style))
+        # Regular paragraph
+        else:
+            text = clean_markdown(line)
+            elements.append(Paragraph(text, body_style))
+    
+    # Build PDF
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
 @app.route("/upload", methods=["POST"])
 def upload():
     if "user_id" not in session:
@@ -235,14 +387,26 @@ def upload():
         flash(f"AI generation failed: {str(e)}")
         return redirect(url_for("dashboard"))
 
-    # Save output to S3
-    out_key = f"outputs/{session['user_id']}/{title}-{f.filename}.txt"
-    s3.put_object(
-        Bucket=S3_BUCKET,
-        Key=out_key,
-        Body=result.encode("utf-8"),
-        ContentType="text/plain",
-    )
+    # Save output to S3 - PDF for summarize/notes, TXT for others
+    if kind in ["summarize", "notes"]:
+        # Generate PDF
+        pdf_buffer = create_pdf_document(result, title, kind)
+        out_key = f"outputs/{session['user_id']}/{title}-{f.filename}.pdf"
+        s3.put_object(
+            Bucket=S3_BUCKET,
+            Key=out_key,
+            Body=pdf_buffer.getvalue(),
+            ContentType="application/pdf",
+        )
+    else:
+        # Save as TXT for MCQ and Flashcards
+        out_key = f"outputs/{session['user_id']}/{title}-{f.filename}.txt"
+        s3.put_object(
+            Bucket=S3_BUCKET,
+            Key=out_key,
+            Body=result.encode("utf-8"),
+            ContentType="text/plain",
+        )
 
     # Record job
     db = get_db()
@@ -261,18 +425,85 @@ def download(job_id):
         return redirect(url_for("signin"))
     db = get_db()
     row = db.execute(
-        "SELECT s3_output_key FROM jobs WHERE id=? AND user_id=?",
+        "SELECT s3_output_key,kind FROM jobs WHERE id=? AND user_id=?",
         (job_id, session["user_id"]),
     ).fetchone()
     if not row:
         return "Not found", 404
+    
     key = row[0]
+    kind = row[1]
     obj = s3.get_object(Bucket=S3_BUCKET, Key=key)
+    
+    # Determine mimetype based on file extension
+    if key.endswith('.pdf'):
+        mimetype = 'application/pdf'
+    else:
+        mimetype = 'text/plain'
+    
     return send_file(
         io.BytesIO(obj["Body"].read()),
         as_attachment=True,
         download_name=os.path.basename(key),
-        mimetype="text/plain",
+        mimetype=mimetype,
+    )
+
+
+@app.route("/view/<int:job_id>")
+def view_pdf(job_id):
+    """View PDF in browser for summarize and notes"""
+    if "user_id" not in session:
+        return redirect(url_for("signin"))
+    
+    db = get_db()
+    row = db.execute(
+        "SELECT s3_output_key,kind,title FROM jobs WHERE id=? AND user_id=?",
+        (job_id, session["user_id"]),
+    ).fetchone()
+    
+    if not row:
+        return "Not found", 404
+    
+    key = row[0]
+    kind = row[1]
+    title = row[2]
+    
+    # Only allow viewing for PDF files (summarize and notes)
+    if kind not in ['summarize', 'notes']:
+        return "This content type cannot be viewed in browser", 400
+    
+    # Get PDF from S3
+    obj = s3.get_object(Bucket=S3_BUCKET, Key=key)
+    pdf_data = obj["Body"].read()
+    
+    return render_template("pdf_viewer.html", 
+                         job_id=job_id, 
+                         title=title,
+                         pdf_data=pdf_data)
+
+
+@app.route("/view/<int:job_id>/pdf")
+def serve_pdf(job_id):
+    """Serve the actual PDF file for embedding"""
+    if "user_id" not in session:
+        return redirect(url_for("signin"))
+    
+    db = get_db()
+    row = db.execute(
+        "SELECT s3_output_key FROM jobs WHERE id=? AND user_id=?",
+        (job_id, session["user_id"]),
+    ).fetchone()
+    
+    if not row:
+        return "Not found", 404
+    
+    key = row[0]
+    obj = s3.get_object(Bucket=S3_BUCKET, Key=key)
+    
+    return Response(
+        obj["Body"].read(),
+        mimetype='application/pdf',
+        headers={'Content-Disposition': 'inline'}
     )
 
 
