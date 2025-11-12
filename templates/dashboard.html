@@ -1,104 +1,168 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="dashboard-container">
-    <div class="dashboard-header">
-        <h1>Welcome to StudyMate AI</h1>
-        <p>Transform your study materials with the power of AI</p>
-    </div>
-
-    <div class="upload-section">
-        <div class="upload-card">
-            <h2>📚 Upload & Generate</h2>
-            <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data" class="upload-form">
-                <div class="file-upload-area" id="fileUploadArea">
-                    <div class="upload-icon">📁</div>
-                    <div class="upload-text">
-                        <h3>Choose your study material</h3>
-                        <p>Upload PDF, PPTX, DOCX, or text files</p>
-                    </div>
-                    <input type="file" name="file" id="fileInput" required accept=".pdf,.pptx,.docx,.txt">
-                    <button type="button" class="browse-btn">Browse Files</button>
+    <!-- Hero Section -->
+    <div class="hero-section">
+        <div class="hero-content">
+            <h1 class="hero-title">Transform Your Study Materials</h1>
+            <p class="hero-subtitle">Upload any document and let AI create summaries, quizzes, notes, and flashcards in seconds</p>
+        </div>
+        <div class="hero-stats">
+            <div class="stat-item">
+                <div class="stat-icon">
+                    <i class="fas fa-file-arrow-up"></i>
                 </div>
-                
-                <div class="tool-selection">
-                    <h3>Choose AI Tool</h3>
-                    <div class="tool-grid">
-                        <label class="tool-card">
-                            <input type="radio" name="kind" value="summarize" checked>
-                            <div class="tool-content">
-                                <div class="tool-icon">📝</div>
-                                <h4>Summarize</h4>
-                                <p>Get concise bullet points and key insights</p>
-                            </div>
-                        </label>
-                        
-                        <label class="tool-card">
-                            <input type="radio" name="kind" value="mcq">
-                            <div class="tool-content">
-                                <div class="tool-icon">❓</div>
-                                <h4>MCQ Quiz</h4>
-                                <p>Generate practice questions with answers</p>
-                            </div>
-                        </label>
-                        
-                        <label class="tool-card">
-                            <input type="radio" name="kind" value="notes">
-                            <div class="tool-content">
-                                <div class="tool-icon">📋</div>
-                                <h4>Study Notes</h4>
-                                <p>Create structured notes and definitions</p>
-                            </div>
-                        </label>
-
-                        <label class="tool-card">
-                            <input type="radio" name="kind" value="flashcards">
-                            <div class="tool-content">
-                                <div class="tool-icon">🃏</div>
-                                <h4>Flash Cards</h4>
-                                <p>Generate interactive study cards for memorization</p>
-                            </div>
-                        </label>
-                    </div>
+                <div class="stat-content">
+                    <div class="stat-number">{{ items|length }}</div>
+                    <div class="stat-label">Generated</div>
                 </div>
-                
-                <button type="submit" class="btn-generate">
-                    <span>✨ Generate with AI</span>
-                </button>
-            </form>
+            </div>
+            <div class="stat-item">
+                <div class="stat-icon">
+                    <i class="fas fa-wand-magic-sparkles"></i>
+                </div>
+                <div class="stat-content">
+                    <div class="stat-number">4</div>
+                    <div class="stat-label">AI Tools</div>
+                </div>
+            </div>
         </div>
     </div>
 
+    <!-- Upload Section -->
+    <div class="upload-section">
+        <div class="section-header">
+            <div class="section-title">
+                <i class="fas fa-cloud-arrow-up"></i>
+                <h2>Upload Document</h2>
+            </div>
+            <p class="section-subtitle">Choose a file and select an AI tool to generate study materials</p>
+        </div>
+
+        <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data" class="upload-form" id="uploadForm">
+            <div class="file-upload-wrapper">
+                <div class="file-upload-area" id="fileUploadArea">
+                    <div class="upload-icon-wrapper">
+                        <div class="upload-icon" id="uploadIcon">
+                            <i class="fas fa-file-arrow-up"></i>
+                        </div>
+                    </div>
+                    <div class="upload-text">
+                        <h3>Drop your file here or click to browse</h3>
+                        <p>Supports PDF, PPTX, DOCX, and TXT files up to 50MB</p>
+                    </div>
+                    <input type="file" name="file" id="fileInput" required accept=".pdf,.pptx,.docx,.txt">
+                </div>
+                
+                <div class="file-info" id="fileInfo" style="display: none;">
+                    <div class="file-preview">
+                        <div class="file-icon" id="fileIcon">
+                            <i class="fas fa-file"></i>
+                        </div>
+                        <div class="file-details">
+                            <div class="file-name" id="fileName"></div>
+                            <div class="file-meta">
+                                <span class="file-size" id="fileSize"></span>
+                                <span class="file-status">
+                                    <i class="fas fa-circle-check"></i> Ready to process
+                                </span>
+                            </div>
+                        </div>
+                        <button type="button" class="file-remove" id="fileRemove">
+                            <i class="fas fa-xmark"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tool Selection (Hidden, controlled by sidebar) -->
+            <input type="hidden" name="kind" id="toolKind" value="summarize">
+            
+            <div class="selected-tool-display" id="selectedToolDisplay">
+                <div class="tool-badge">
+                    <i class="fas fa-file-lines"></i>
+                    <span>Summarize</span>
+                </div>
+                <span class="change-tool">Click a tool in the sidebar to change</span>
+            </div>
+
+            <button type="submit" class="btn-generate" id="btnGenerate">
+                <span class="btn-content">
+                    <i class="fas fa-wand-magic-sparkles"></i>
+                    <span>Generate with AI</span>
+                </span>
+            </button>
+        </form>
+    </div>
+
+    <!-- Outputs Section -->
     <div class="outputs-section">
-        <h2>📊 Your Generated Content</h2>
+        <div class="section-header">
+            <div class="section-title">
+                <i class="fas fa-folder-open"></i>
+                <h2>Your Generated Content</h2>
+            </div>
+            {% if items %}
+            <p class="section-subtitle">{{ items|length }} item{% if items|length != 1 %}s{% endif %} ready for download</p>
+            {% endif %}
+        </div>
+
         {% if items %}
             <div class="outputs-grid">
                 {% for item in items %}
                 <div class="output-card">
+                    <div class="output-type-badge badge-{{ item.kind }}">
+                        {% if item.kind == 'summarize' %}
+                            <i class="fas fa-file-lines"></i>
+                        {% elif item.kind == 'mcq' %}
+                            <i class="fas fa-circle-question"></i>
+                        {% elif item.kind == 'flashcards' %}
+                            <i class="fas fa-layer-group"></i>
+                        {% else %}
+                            <i class="fas fa-clipboard"></i>
+                        {% endif %}
+                    </div>
+                    
                     <div class="output-header">
-                        <div class="output-icon">
-                            {% if item.kind == 'summarize' %}📝
-                            {% elif item.kind == 'mcq' %}❓
-                            {% elif item.kind == 'flashcards' %}🃏
-                            {% else %}📋
-                            {% endif %}
-                        </div>
-                        <div class="output-info">
-                            <h4>{{ item.title }}</h4>
-                            <div class="output-filename">{{ item.original_filename }}</div>
-                            <span class="output-type">{{ item.kind.title() }}</span>
+                        <h4>{{ item.title }}</h4>
+                        <div class="output-meta">
+                            <span class="output-filename">
+                                <i class="fas fa-file"></i>
+                                {{ item.original_filename }}
+                            </span>
                         </div>
                     </div>
-                    <a href="{{ url_for('download', job_id=item.id) }}" class="btn-download">
-                        <span>⬇️ Download</span>
-                    </a>
+                    
+                    <div class="output-footer">
+                        <span class="output-type-label">{{ item.kind.title() }}</span>
+                        <div class="output-actions">
+                            {% if item.kind == 'flashcards' %}
+                            <a href="{{ url_for('view_flashcards', job_id=item.id) }}" class="btn-practice">
+                                <i class="fas fa-play"></i>
+                                <span>Practice</span>
+                            </a>
+                            {% endif %}
+                            <a href="{{ url_for('download', job_id=item.id) }}" class="btn-download">
+                                <i class="fas fa-download"></i>
+                                <span>Download</span>
+                            </a>
+                        </div>
+                    </div>
                 </div>
                 {% endfor %}
             </div>
         {% else %}
             <div class="empty-state">
-                <div class="empty-icon">📭</div>
+                <div class="empty-illustration">
+                    <div class="empty-icon">
+                        <i class="fas fa-folder-open"></i>
+                    </div>
+                    <div class="empty-sparkles">
+                        <i class="fas fa-sparkles"></i>
+                    </div>
+                </div>
                 <h3>No content yet</h3>
-                <p>Upload a file above to generate your first AI-powered study material!</p>
+                <p>Upload your first document to generate AI-powered study materials</p>
             </div>
         {% endif %}
     </div>

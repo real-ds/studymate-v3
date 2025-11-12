@@ -14,6 +14,15 @@ from PyPDF2 import PdfReader
 from pptx import Presentation
 from docx import Document
 
+from pptx import Presentation
+from pptx.util import Inches, Pt
+from pptx.enum.text import PP_ALIGN
+from pptx.dml.color import RGBColor
+import json
+import io
+
+
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "dev-key")
 
@@ -265,6 +274,190 @@ def download(job_id):
         download_name=os.path.basename(key),
         mimetype="text/plain",
     )
+
+
+def parse_flashcards_from_text(text):
+    """
+    Parse flashcards from the AI-generated text.
+    Expected format: FRONT: question\nBACK: answer\n\n
+    """
+    flashcards = []
+    
+    # Try to parse as JSON first (if AI returns JSON)
+    try:
+        data = json.loads(text)
+        if isinstance(data, dict) and 'flashcards' in data:
+            return data['flashcards']
+        elif isinstance(data, list):
+            return data
+    except:
+        pass
+    
+    # Parse text format
+    lines = text.strip().split('\n')
+    current_card = {}
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            if current_card and 'question' in current_card and 'answer' in current_card:
+                flashcards.append(current_card)
+                current_card = {}
+            continue
+        
+        if line.upper().startswith('FRONT:') or line.upper().startswith('Q:') or line.upper().startswith('QUESTION:'):
+            current_card['question'] = line.split(':', 1)[1].strip()
+        elif line.upper().startswith('BACK:') or line.upper().startswith('A:') or line.upper().startswith('ANSWER:'):
+            current_card['answer'] = line.split(':', 1)[1].strip()
+        elif 'question' not in current_card:
+            current_card['question'] = line
+        elif 'answer' not in current_card:
+            if 'answer' in current_card:
+                current_card['answer'] += '\\n' + line
+            else:
+                current_card['answer'] = line
+    
+    # Add last card
+    if current_card and 'question' in current_card and 'answer' in current_card:
+        flashcards.append(current_card)
+    
+    return flashcards
+
+
+# 3. ADD NEW ROUTE for viewing flashcards:
+
+@app.route("/flashcards/<int:job_id>")
+def view_flashcards(job_id):
+    """View and practice flashcards interactively"""
+    if "user_id" not in session:
+        return redirect(url_for("signin"))
+    
+    db = get_db()
+    row = db.execute(
+        "SELECT title, s3_output_key, kind FROM jobs WHERE id=? AND user_id=?",
+        (job_id, session["user_id"]),
+    ).fetchone()
+    
+    if not row or row[2] != 'flashcards':
+        return "Not found or not a flashcard set", 404
+    
+    # Get flashcards from S3
+    obj = s3.get_object(Bucket=S3_BUCKET, Key=row[1])
+    content = obj["Body"].read().decode("utf-8")
+    
+    # Parse flashcards
+    cards = parse_flashcards_from_text(content)
+    
+    return render_template(
+        "flashcards_view.html",
+        job_id=job_id,
+        title=row[0],
+        cards=cards
+    )
+
+
+# 4. ADD HELPER FUNCTION for PPTX export:
+
+def create_flashcards_pptx(cards, title):
+    """
+    Create a PowerPoint presentation from flashcards.
+    Each card gets 2 slides: question and answer.
+    """
+    prs = Presentation()
+    
+    for i, card in enumerate(cards, start=1):
+        # -------- Question Slide --------
+        slide_q = prs.slides.add_slide(prs.slide_layouts[5])  # Blank layout
+        
+        # Add question text box
+        tx_q = slide_q.shapes.add_textbox(
+            Inches(0.5), Inches(2), Inches(9), Inches(3)
+        )
+        tf_q = tx_q.text_frame
+        tf_q.word_wrap = True
+        
+        p_q = tf_q.paragraphs[0]
+        p_q.text = card.get('question', '')
+        p_q.font.size = Pt(32)
+        p_q.font.bold = True
+        p_q.alignment = PP_ALIGN.CENTER
+        
+        # Add footer
+        footer_q = slide_q.shapes.add_textbox(
+            Inches(0.5), Inches(6.5), Inches(9), Inches(0.5)
+        )
+        footer_q.text = f"{title} - Card {i} (Question)"
+        footer_q.text_frame.paragraphs[0].font.size = Pt(12)
+        
+        # -------- Answer Slide --------
+        slide_a = prs.slides.add_slide(prs.slide_layouts[5])
+        
+        # Add answer text box
+        tx_a = slide_a.shapes.add_textbox(
+            Inches(0.5), Inches(1.5), Inches(9), Inches(4)
+        )
+        tf_a = tx_a.text_frame
+        tf_a.word_wrap = True
+        
+        # Add answer content (handle bullet points)
+        answer_lines = card.get('answer', '').replace('\\n', '\n').split('\n')
+        for idx, line in enumerate(answer_lines):
+            if line.strip():
+                p = tf_a.add_paragraph() if idx > 0 else tf_a.paragraphs[0]
+                p.text = line.strip()
+                p.level = 0
+                p.font.size = Pt(22)
+                p.font.color.rgb = RGBColor(0, 0, 0)
+        
+        # Add footer
+        footer_a = slide_a.shapes.add_textbox(
+            Inches(0.5), Inches(6.5), Inches(9), Inches(0.5)
+        )
+        footer_a.text = f"{title} - Card {i} (Answer)"
+        footer_a.text_frame.paragraphs[0].font.size = Pt(12)
+    
+    # Save to BytesIO
+    bio = io.BytesIO()
+    prs.save(bio)
+    bio.seek(0)
+    return bio
+
+
+# 5. ADD NEW ROUTE for PPTX export:
+
+@app.route("/flashcards/<int:job_id>/export/pptx")
+def export_flashcards_pptx(job_id):
+    """Export flashcards as PowerPoint presentation"""
+    if "user_id" not in session:
+        return redirect(url_for("signin"))
+    
+    db = get_db()
+    row = db.execute(
+        "SELECT title, s3_output_key, kind FROM jobs WHERE id=? AND user_id=?",
+        (job_id, session["user_id"]),
+    ).fetchone()
+    
+    if not row or row[2] != 'flashcards':
+        return "Not found or not a flashcard set", 404
+    
+    # Get flashcards from S3
+    obj = s3.get_object(Bucket=S3_BUCKET, Key=row[1])
+    content = obj["Body"].read().decode("utf-8")
+    
+    # Parse flashcards
+    cards = parse_flashcards_from_text(content)
+    
+    # Create PPTX
+    bio = create_flashcards_pptx(cards, row[0])
+    
+    return send_file(
+        bio,
+        mimetype="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        as_attachment=True,
+        download_name=f"{row[0]}_flashcards.pptx",
+    )
+
+
 
 if __name__ == "__main__":
     app.run(debug=True)

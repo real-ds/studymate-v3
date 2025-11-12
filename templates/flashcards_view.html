@@ -1,0 +1,198 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="flashcards-container">
+    <!-- Header -->
+    <div class="flashcards-header">
+        <div class="header-content">
+            <button onclick="window.history.back()" class="btn-back">
+                <i class="fas fa-arrow-left"></i>
+                <span>Back to Dashboard</span>
+            </button>
+            <div class="header-info">
+                <h1>{{ title }}</h1>
+                <p class="subtitle">{{ cards|length }} flashcards • Click to flip</p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <a href="{{ url_for('download', job_id=job_id) }}" class="btn-action btn-secondary">
+                <i class="fas fa-download"></i>
+                <span>Download TXT</span>
+            </a>
+            <a href="{{ url_for('export_flashcards_pptx', job_id=job_id) }}" class="btn-action btn-primary">
+                <i class="fas fa-file-powerpoint"></i>
+                <span>Download PPTX</span>
+            </a>
+        </div>
+    </div>
+
+    <!-- Progress Bar -->
+    <div class="progress-section">
+        <div class="progress-info">
+            <span class="progress-text">Card <span id="currentCard">1</span> of {{ cards|length }}</span>
+            <span class="progress-percentage"><span id="progressPercent">0</span>%</span>
+        </div>
+        <div class="progress-bar">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+    </div>
+
+    <!-- Flashcards Grid -->
+    <div class="flashcards-grid" id="flashcardsGrid">
+        {% for card in cards %}
+        <div class="flip-card" data-card-index="{{ loop.index }}">
+            <div class="flip-card-inner">
+                <!-- Front (Question) -->
+                <div class="flip-card-front">
+                    <div class="card-number">Card {{ loop.index }}</div>
+                    <div class="card-content">
+                        <div class="card-icon">
+                            <i class="fas fa-lightbulb"></i>
+                        </div>
+                        <h3>{{ card.question }}</h3>
+                    </div>
+                    <div class="card-hint">
+                        <i class="fas fa-hand-pointer"></i>
+                        Click to see answer
+                    </div>
+                </div>
+                
+                <!-- Back (Answer) -->
+                <div class="flip-card-back">
+                    <div class="card-number">Card {{ loop.index }} - Answer</div>
+                    <div class="card-content">
+                        <div class="card-icon">
+                            <i class="fas fa-check-circle"></i>
+                        </div>
+                        <div class="answer-text">{{ card.answer | replace('\\n', '<br>') | safe }}</div>
+                    </div>
+                    <div class="card-hint">
+                        <i class="fas fa-rotate-left"></i>
+                        Click to flip back
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Navigation Controls -->
+    <div class="navigation-controls">
+        <button class="btn-nav" id="btnShuffle">
+            <i class="fas fa-shuffle"></i>
+            <span>Shuffle</span>
+        </button>
+        <button class="btn-nav" id="btnReset">
+            <i class="fas fa-rotate-right"></i>
+            <span>Reset All</span>
+        </button>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const cards = document.querySelectorAll('.flip-card');
+    const progressFill = document.getElementById('progressFill');
+    const currentCardEl = document.getElementById('currentCard');
+    const progressPercent = document.getElementById('progressPercent');
+    const btnShuffle = document.getElementById('btnShuffle');
+    const btnReset = document.getElementById('btnReset');
+    
+    let viewedCards = new Set();
+    
+    // Flip card on click
+    cards.forEach((card, index) => {
+        card.addEventListener('click', function() {
+            this.classList.toggle('flipped');
+            
+            // Track viewed cards
+            if (this.classList.contains('flipped')) {
+                viewedCards.add(index);
+            }
+            
+            updateProgress();
+        });
+        
+        // Keyboard support
+        card.setAttribute('tabindex', '0');
+        card.addEventListener('keypress', function(e) {
+            if (e.key === ' ' || e.key === 'Enter') {
+                e.preventDefault();
+                this.click();
+            }
+        });
+    });
+    
+    // Update progress
+    function updateProgress() {
+        const viewed = viewedCards.size;
+        const total = cards.length;
+        const percent = Math.round((viewed / total) * 100);
+        
+        progressFill.style.width = percent + '%';
+        currentCardEl.textContent = Math.min(viewed + 1, total);
+        progressPercent.textContent = percent;
+    }
+    
+    // Shuffle cards
+    btnShuffle.addEventListener('click', function() {
+        const grid = document.getElementById('flashcardsGrid');
+        const cardsArray = Array.from(cards);
+        
+        // Shuffle array
+        for (let i = cardsArray.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [cardsArray[i], cardsArray[j]] = [cardsArray[j], cardsArray[i]];
+        }
+        
+        // Re-append in shuffled order
+        cardsArray.forEach(card => {
+            card.classList.remove('flipped');
+            grid.appendChild(card);
+        });
+        
+        // Show notification
+        showNotification('Cards shuffled!', 'info');
+    });
+    
+    // Reset all cards
+    btnReset.addEventListener('click', function() {
+        cards.forEach(card => {
+            card.classList.remove('flipped');
+        });
+        viewedCards.clear();
+        updateProgress();
+        
+        showNotification('All cards reset!', 'success');
+    });
+    
+    // Scroll to card on flip
+    cards.forEach(card => {
+        card.addEventListener('click', function() {
+            setTimeout(() => {
+                this.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 100);
+        });
+    });
+});
+
+// Utility notification function
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = 'flash-message';
+    notification.innerHTML = `
+        <div class="flash-content">
+            <i class="fas fa-circle-${type === 'success' ? 'check' : 'info'}"></i>
+            <span>${message}</span>
+        </div>
+    `;
+    
+    const container = document.querySelector('.flashcards-container');
+    container.insertBefore(notification, container.firstChild);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideOutRight 0.3s ease-out forwards';
+        setTimeout(() => notification.remove(), 300);
+    }, 2000);
+}
+</script>
+{% endblock %}
